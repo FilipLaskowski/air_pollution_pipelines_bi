@@ -1,0 +1,61 @@
+version: '3'
+
+networks:
+  pollution_network:
+    driver: bridge
+
+services:
+
+  postgres:
+    build: ./docker/postgres
+    ports: 
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - pollution_network
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-q", "-d", "airflow_db", "-U", "airflow" ]
+      timeout: 45s
+      interval: 10s
+      retries: 10
+
+  airflow_webserver:
+    build: ./docker/airflow_webserver
+    ports:
+      - "8080:8080"
+    depends_on: 
+      - postgres
+    restart: always
+    environment:
+      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql+psycopg2://postgres:postgres@postgres:5432/airflow_db
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+    networks:
+      - pollution_network
+    volumes:
+      - ./mnt/airflow:/opt/airflow
+      - ./mnt/airflow/dags:/opt/airflow/dags
+    healthcheck:
+      test: [ "CMD", "nc", "-z", "airflow", "8080" ]
+      timeout: 45s
+      interval: 10s
+      retries: 10
+
+  airflow_scheduler:
+    build: ./docker/airflow_scheduler
+    restart: always
+    depends_on:
+      - postgres
+    environment:
+      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql+psycopg2://postgres:postgres@postgres:5432/airflow_db
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+    networks:
+      - pollution_network
+    volumes:
+      - ./mnt/airflow:/opt/airflow
+      - ./mnt/airflow/dags:/opt/airflow/dags
+      
+volumes:
+  postgres_data:

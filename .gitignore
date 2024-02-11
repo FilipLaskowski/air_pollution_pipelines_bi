@@ -1,0 +1,2 @@
+airflow/logs/
+mnt/airflow/logs/scheduler/latest
